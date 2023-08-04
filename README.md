@@ -1,15 +1,41 @@
 # libnl based wifi access point scanner
 
-This program uses the scanning features of wifi hardware to discover nearby wifi access points and prints information about them. Due to libnl / nl80211 being used, this program only works on somewhat newer wifi drivers on Linux. Only root can perform scanning due to `NL80211_CMD_TRIGGER_SCAN` being limited to root by default.
+This repo was forked from "Delicode/libnl-ap-scanner" because its output has changed and is not backwards compatible.
 
-The program is designed to for being parsed by other programs. iw(8), when executing, says:
+*Updates:*
 
+Aug 4, 2023:
+- signal strength bug fixed (u8 -> u32)
+- enum values now comma separated because the values can contains spaces (e.g.: "IEEE 802.1X")
+- bogus separators and whitespaces removed
+- section name added
+- WPA and WPS information added
+
+### Usage
+JS regexps for parsing (**use** case-insensitive matching).
+
+for DISCOVERED lines:
 ```
-Do NOT screenscrape this tool, we don't consider its output stable.
+^AP_DISCOVERED,([A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2})$
+```
+for DATA lines:
+```
+^AP_DATA,([A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}),([\w\d]+),([\-\w\d\s]+)(?::(.*))?$
+```
+for Signal strength value:
+```
+:(?:(?:(-?\d+) (mBm))|(?:(\d{1,3}) (units)))$
 ```
 
-As such, there was a need for AP scanning tool that **does** have stable output. The program output is approximately following:
+#### Using the signal strength value
+```
+dBm = mBm / 100
+units = 0..100    (signal quality in percent)
+```
 
+#### Output
+
+The goal is still to have a stable output. The output of the program is approximately as follows:
 ```
 gekko@gekkoslovakia:~/libnl-ap-scanner$ make && sudo ./ap-scanner wlp2s0
 make: Nothing to be done for 'all'.
@@ -17,55 +43,59 @@ Using interface: wlp2s0
 nl_send_auto wrote 36 bytes
 Waiting for scan to complete
 Scan is done
-AP_DISCOVERED:2c:56:dc:5c:8e:85
-AP_DATA:2c:56:dc:5c:8e:85,signal strength:152
-AP_DATA:2c:56:dc:5c:8e:85,frequency:2437 MHz
-AP_DATA:2c:56:dc:5c:8e:85,ssid:Hannibal
-AP_DATA:2c:56:dc:5c:8e:85,RSN version:1
-AP_DATA:2c:56:dc:5c:8e:85,RSN group cipher:CCMP
-AP_DATA:2c:56:dc:5c:8e:85,RSN pairwise ciphers:,CCMP
-AP_DATA:2c:56:dc:5c:8e:85,RSN authentication suites: IEEE 802.1X
-AP_DATA:2c:56:dc:5c:8e:85,RSN capabilities: 1-PTKSA-RC 1-GTKSA-RC (0x0000)
-AP_DATA:2c:56:dc:5c:8e:85,ssid:Hannibal
-AP_DATA:2c:56:dc:5c:8e:85,RSN version:1
-AP_DATA:2c:56:dc:5c:8e:85,RSN group cipher:CCMP
-AP_DATA:2c:56:dc:5c:8e:85,RSN pairwise ciphers:,CCMP
-AP_DATA:2c:56:dc:5c:8e:85,RSN authentication suites: IEEE 802.1X
-AP_DATA:2c:56:dc:5c:8e:85,RSN capabilities: 1-PTKSA-RC 1-GTKSA-RC (0x0000)
+AP_DISCOVERED,2c:56:dc:5c:8e:85
+AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,signal strength:-4700 mBm
+AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,frequency:2437 MHz
+AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,ssid:Domain1
+AP_DATA,2c:56:dc:5c:8e:85,RSN,version:1
+AP_DATA,2c:56:dc:5c:8e:85,RSN,group cipher:CCMP
+AP_DATA,2c:56:dc:5c:8e:85,RSN,pairwise ciphers:CCMP
+AP_DATA,2c:56:dc:5c:8e:85,RSN,authentication suites:IEEE 802.1X
+AP_DATA,2c:56:dc:5c:8e:85,RSN,capabilities:1-PTKSA-RC,1-GTKSA-RC,(0x0000)
 
-AP_DISCOVERED:70:df:2f:9e:0f:40
-AP_DATA:70:df:2f:9e:0f:40,signal strength:224
-AP_DATA:70:df:2f:9e:0f:40,frequency:2412 MHz
-AP_DATA:70:df:2f:9e:0f:40,ssid:aalto
-AP_DATA:70:df:2f:9e:0f:40,RSN version:1
-AP_DATA:70:df:2f:9e:0f:40,RSN group cipher:CCMP
-AP_DATA:70:df:2f:9e:0f:40,RSN pairwise ciphers:,CCMP
-AP_DATA:70:df:2f:9e:0f:40,RSN authentication suites: IEEE 802.1X
-AP_DATA:70:df:2f:9e:0f:40,RSN capabilities: 4-PTKSA-RC 4-GTKSA-RC (0x0028)
-AP_DATA:70:df:2f:9e:0f:40,ssid:aalto
-AP_DATA:70:df:2f:9e:0f:40,RSN version:1
-AP_DATA:70:df:2f:9e:0f:40,RSN group cipher:CCMP
-AP_DATA:70:df:2f:9e:0f:40,RSN pairwise ciphers:,CCMP
-AP_DATA:70:df:2f:9e:0f:40,RSN authentication suites: IEEE 802.1X
-AP_DATA:70:df:2f:9e:0f:40,RSN capabilities: 4-PTKSA-RC 4-GTKSA-RC (0x0028)
+AP_DISCOVERED,37:c5:9a:31:fa:8c
+AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,signal strength:-2600 mBm
+AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,frequency:5180 MHz
+AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,ssid:Iot-Test_5G
+AP_DATA,37:c5:9a:31:fa:8c,RSN,version:1
+AP_DATA,37:c5:9a:31:fa:8c,RSN,group cipher:CCMP
+AP_DATA,37:c5:9a:31:fa:8c,RSN,pairwise ciphers:CCMP
+AP_DATA,37:c5:9a:31:fa:8c,RSN,authentication suites:SAE
+AP_DATA,37:c5:9a:31:fa:8c,RSN,capabilities:16-PTKSA-RC,1-GTKSA-RC,MFP-required,MFP-capable,(0x00cc)
+
+AP_DISCOVERED,a8:56:28:af:0a:0f
+AP_DATA,a8:56:28:af:0a:0f,GLOBAL,signal strength:-2600 mBm
+AP_DATA,a8:56:28:af:0a:0f,GLOBAL,frequency:2462 MHz
+AP_DATA,a8:56:28:af:0a:0f,GLOBAL,ssid:Iot-Test
+AP_DATA,a8:56:28:af:0a:0f,RSN,version:1
+AP_DATA,a8:56:28:af:0a:0f,RSN,group cipher:TKIP
+AP_DATA,a8:56:28:af:0a:0f,RSN,pairwise ciphers:CCMP,TKIP
+AP_DATA,a8:56:28:af:0a:0f,RSN,authentication suites:PSK
+AP_DATA,a8:56:28:af:0a:0f,RSN,capabilities:16-PTKSA-RC,1-GTKSA-RC,(0x000c)
+AP_DATA,a8:56:28:af:0a:0f,WPS,version:1.0
+AP_DATA,a8:56:28:af:0a:0f,WPS,wi-fi protected setup state:2 (Configured)
+AP_DATA,a8:56:28:af:0a:0f,WPS,response type:3 (AP)
+AP_DATA,a8:56:28:af:0a:0f,WPS,uuid:5c1f07ad-9d5a-8fe6-53ca-27fb6e1db5c2
+AP_DATA,a8:56:28:af:0a:0f,WPS,manufacturer:TP-Link
+AP_DATA,a8:56:28:af:0a:0f,WPS,model:Archer AX10
+AP_DATA,a8:56:28:af:0a:0f,WPS,model Number:123456
+AP_DATA,a8:56:28:af:0a:0f,WPS,serial number:1234
+AP_DATA,a8:56:28:af:0a:0f,WPS,primary device type:6-0050f204-1
+AP_DATA,a8:56:28:af:0a:0f,WPS,device name:Archer AX10
+AP_DATA,a8:56:28:af:0a:0f,WPS,config methods:Display
+AP_DATA,a8:56:28:af:0a:0f,WPS,rf bands:0x3
+AP_DATA,a8:56:28:af:0a:0f,WPS,version2:2.0
+AP_DATA,a8:56:28:af:0a:0f,WPA,version:1
+AP_DATA,a8:56:28:af:0a:0f,WPA,group cipher:TKIP
+AP_DATA,a8:56:28:af:0a:0f,WPA,pairwise ciphers:CCMP,TKIP
+AP_DATA,a8:56:28:af:0a:0f,WPA,authentication suites:PSK
 ```
-
-Lines beginning with `AP_DISCOVERED` and `AP_DATA` are intended for parsing. Of note is that some data may be printed twice. This is because the BSS (Basic Service Set) in an access point scan response may contain IEs (Information Elements) from both probe requests and beacon responses.
 
 ### Dependencies
 
 * libnl. On Debian, install: `libnl-3-dev libnl-genl-3-dev`
 
-### Building
-
-* `make`
-
-### Code quality
-
-When I started working on this tool, I had to start learning the WIFI protocol, the nl80211 header, netlink as well as undocumented code written by others. I did my best documenting the entire program, but there are areas that I don't understand and which are directly copied from iw source code. I'm open for contributions improving the documentation as well as handling potentially remaining memory leaks or bugs.
-
 ### Other developers
-
 The is code is applied from:
 
 * libnl sources: [https://www.infradead.org/~tgr/libnl/](https://www.infradead.org/~tgr/libnl/)
@@ -73,4 +103,3 @@ The is code is applied from:
 * iw(8) source code: [https://git.kernel.org/pub/scm/linux/kernel/git/jberg/iw.git](https://git.kernel.org/pub/scm/linux/kernel/git/jberg/iw.git)
 
 This changed version of the example program `scan_access_points.c` addresses several errors that were not handled, scans for more information, rearranges the code in a cleaner format and improves on the documentation. In addition, several memory leaks with allocated libnl resources are handled.
-
