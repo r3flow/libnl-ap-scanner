@@ -10,6 +10,7 @@ Aug 4, 2023:
 - bogus separators and whitespaces removed
 - section name added
 - WPA and WPS information added
+- Bitbake recipe for OpenEmbedded (Bitbake 2.0 [kirkstone] or higher required)
 
 ### Usage
 JS regexps for parsing (**use** case-insensitive matching).
