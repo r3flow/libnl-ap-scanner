@@ -4,6 +4,7 @@
  * - example code from Python libnl port (LGPL2.1):
  *	 https://github.com/Robpol86/libnl/blob/master/example_c/scan_access_points.c
  * - as well as iw(8) source code (MIT).
+ *   https://git.sipsolutions.net/iw.git/tree/scan.c
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -53,11 +54,20 @@ const unsigned char wfa_oui[3] = { 0x50, 0x6f, 0x9a };
 // used to make sure every print contains clarification for which MAC the data is.
 char current_mac[20];
 
-const char* DISCOVER_STR = "AP_DISCOVERED:";
-const char* DATA_STR = "AP_DATA:";
+const char* DISCOVER_STR = "AP_DISCOVERED,";
+const char* DATA_STR = "AP_DATA,";
+const char* GLOBAL_SECTION = "GLOBAL";
 
-inline void dataline() {
-	printf("%s%s,", DATA_STR, current_mac);
+inline void dataline(const char* section_name = NULL) {
+	printf("%s%s,%s,", DATA_STR, current_mac, section_name != NULL ? section_name : GLOBAL_SECTION);
+}
+
+static void sep_if_not_first(bool *first, const char* separator = ",")
+{
+	if (!*first)
+		printf("%s", separator);
+	else
+		*first = false;
 }
 
 struct init_scan_results {
@@ -112,8 +122,204 @@ void mac_addr_n2a(char* mac_addr, unsigned char* arg) {
 	}
 }
 
+static const char * wifi_wps_dev_passwd_id(uint16_t id)
+{
+	switch (id) {
+	case 0:
+		return "Default (PIN)";
+	case 1:
+		return "User-specified";
+	case 2:
+		return "Machine-specified";
+	case 3:
+		return "Rekey";
+	case 4:
+		return "PushButton";
+	case 5:
+		return "Registrar-specified";
+	default:
+		return "??";
+	}
+}
+
+static void print_wifi_wps(const uint8_t type, uint8_t len, const uint8_t *data,
+			   struct print_ies_data *ie_buffer, const char* section_name)
+{
+	__u16 subtype, sublen;
+
+	while (len >= 4) {
+		subtype = (data[0] << 8) + data[1];
+		sublen = (data[2] << 8) + data[3];
+		if (sublen > len - 4)
+			break;
+
+		switch (subtype) {
+		case 0x104a:
+			if (sublen < 1) break;
+
+			dataline(section_name);
+			printf("version:%d.%d\n", data[4] >> 4, data[4] & 0xF);
+			break;
+		case 0x1011:
+			dataline(section_name);
+			printf("device name:%.*s\n", sublen, data + 4);
+			break;
+		case 0x1012: {
+			uint16_t id;
+			if (sublen != 2) break;
+			
+			id = data[4] << 8 | data[5];
+			dataline(section_name);
+			printf("device password id:%u (%s)\n", id, wifi_wps_dev_passwd_id(id));
+			break;
+		}
+		case 0x1021:
+			dataline(section_name);
+			printf("manufacturer:%.*s\n", sublen, data + 4);
+			break;
+		case 0x1023:
+			dataline(section_name);
+			printf("model:%.*s\n", sublen, data + 4);
+			break;
+		case 0x1024:
+			dataline(section_name);
+			printf("model Number:%.*s\n", sublen, data + 4);
+			break;
+		case 0x103b: {
+			__u8 val;
+
+			if (sublen < 1) break;
+			
+			val = data[4];
+			dataline(section_name);
+			printf("response type:%d%s\n", val, val == 3 ? " (AP)" : "");
+			break;
+		}
+		case 0x103c: {
+			__u8 val;
+
+			if (sublen < 1) break;
+
+			val = data[4];
+			dataline(section_name);
+			printf("rf bands:0x%x\n", val);
+			break;
+		}
+		case 0x1041: {
+			__u8 val;
+
+			if (sublen < 1) break;
+
+			val = data[4];
+			dataline(section_name);
+			printf("selected registrar:0x%x\n", val);
+			break;
+		}
+		case 0x1042:
+			dataline(section_name);
+			printf("serial number:%.*s\n", sublen, data + 4);
+			break;
+		case 0x1044: {
+			__u8 val;
+
+			if (sublen < 1) break;
+
+			val = data[4];
+			dataline(section_name);
+			printf("wi-fi protected setup state:%d%s%s\n",
+			       val,
+			       val == 1 ? " (Unconfigured)" : "",
+			       val == 2 ? " (Configured)" : "");
+			break;
+		}
+		case 0x1047:
+			if (sublen != 16) break;
+
+			dataline(section_name);
+			printf("uuid:%02x%02x%02x%02x-%02x%02x-%02x%02x-"
+				"%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+				data[4], data[5], data[6], data[7],
+				data[8], data[9], data[10], data[11],
+				data[12], data[13], data[14], data[15],
+				data[16], data[17], data[18], data[19]);
+			break;
+		case 0x1049:
+			if (sublen == 6 &&
+			    data[4] == 0x00 &&
+			    data[5] == 0x37 &&
+			    data[6] == 0x2a &&
+			    data[7] == 0x00 &&
+			    data[8] == 0x01) {
+				uint8_t v2 = data[9];
+				dataline(section_name);
+				printf("version2:%d.%d\n", v2 >> 4, v2 & 0xf);
+			}
+			break;
+		case 0x1054: {
+			if (sublen != 8) break;
+
+			dataline(section_name);
+			printf("primary device type:"
+			       "%u-%02x%02x%02x%02x-%u\n",
+			       data[4] << 8 | data[5],
+			       data[6], data[7], data[8], data[9],
+			       data[10] << 8 | data[11]);
+			break;
+		}
+		case 0x1057: {
+			__u8 val;
+
+			if (sublen < 1) break;
+
+			val = data[4];
+			dataline(section_name);
+			printf("ap setup locked:0x%.2x\n", val);
+			break;
+		}
+		case 0x1008:
+		case 0x1053: {
+			__u16 meth;
+			bool comma;
+
+			if (sublen < 2) break;
+
+			meth = (data[4] << 8) + data[5];
+			comma = false;
+			dataline(section_name);
+			printf("%sconfig methods:",
+			       subtype == 0x1053 ? "selected registrar ": "");
+#define T(bit, name) do {		\
+	if (meth & (1<<bit)) {		\
+		if (comma)		\
+			printf(",");	\
+		comma = true;		\
+		printf("%s",name);	\
+	} } while (0)
+			T(0, "USB");
+			T(1, "Ethernet");
+			T(2, "Label");
+			T(3, "Display");
+			T(4, "Ext. NFC");
+			T(5, "Int. NFC");
+			T(6, "NFC Intf.");
+			T(7, "PBC");
+			T(8, "Keypad");
+			printf("\n");
+			break;
+#undef T
+		}
+		default: {
+			break;
+		}
+		}
+
+		data += sublen + 4;
+		len -= sublen + 4;
+	}
+}
+
 void print_ssid(const uint8_t type, uint8_t len, const uint8_t *data,
-	const struct print_ies_data *ie_buffer) {
+	struct print_ies_data *ie_buffer, const char* section_name) {
 
 	int i;
 
@@ -283,31 +489,32 @@ static void print_cipher(const uint8_t *data) {
 
 // from iw source code, no idea what's going on here
 void print_rsn_ie(const char *defcipher, const char *defauth,
-	uint8_t len, const uint8_t *data) {
+	uint8_t len, const uint8_t *data, const char* section_name) {
 
 	__u16 count, capa;
 	int i;
 	int is_osen = 0;
+	bool first = true;
 
-	dataline();
+	dataline(section_name);
 	if (!is_osen) {
 		__u16 version;
 		version = data[0] + (data[1] << 8);
-		printf("RSN version:%d\n", version);
+		printf("version:%d\n", version);
 		data += 2;
 		len -= 2;
 	}
 
 	if (len < 4) {
-		dataline();
-		printf("RSN group cipher:%s\n", defcipher);
-		dataline();
-		printf("RSN pairwise ciphers:%s\n", defcipher);
+		dataline(section_name);
+		printf("group cipher:%s\n", defcipher);
+		dataline(section_name);
+		printf("pairwise ciphers:%s\n", defcipher);
 		return;
 	}
 
-	dataline();
-	printf("RSN group cipher:");
+	dataline(section_name);
+	printf("group cipher:");
 	print_cipher(data);
 	printf("\n");
 
@@ -315,8 +522,8 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 	len -= 4;
 
 	if (len < 2) {
-		dataline();
-		printf("RSN pairwise ciphers:%s\n", defcipher);
+		dataline(section_name);
+		printf("pairwise ciphers:%s\n", defcipher);
 		return;
 	}
 
@@ -325,10 +532,10 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 		goto invalid;
 	}
 
-	dataline();
-	printf("RSN pairwise ciphers:");
+	dataline(section_name);
+	printf("pairwise ciphers:");
 	for (i = 0; i < count; i++) {
-		printf(",");
+		if (i > 0) printf(",");
 		print_cipher(data + 2 + (i * 4));
 	}
 	printf("\n");
@@ -337,8 +544,8 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 	len -= 2 + (count * 4);
 
 	if (len < 2) {
-		dataline();
-		printf("RSN authentication suites:%s\n", defauth);
+		dataline(section_name);
+		printf("authentication suites:%s\n", defauth);
 		return;
 	}
 
@@ -347,10 +554,10 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 		goto invalid;
 	}
 
-	dataline();
-	printf("RSN authentication suites:");
+	dataline(section_name);
+	printf("authentication suites:");
 	for (i = 0; i < count; i++) {
-		printf(" ");
+		if (i > 0) printf(",");
 		print_auth(data + 2 + (i * 4));
 	}
 	printf("\n");
@@ -360,53 +567,53 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 
 	if (len >= 2) {
 		capa = data[0] | (data[1] << 8);
-		dataline();
-		printf("RSN capabilities:");
+		dataline(section_name);
+		printf("capabilities:");
 		if (capa & 0x0001)
-			printf(" PreAuth");
+			{sep_if_not_first(&first); printf("PreAuth");}
 		if (capa & 0x0002)
-			printf(" NoPairwise");
+			{sep_if_not_first(&first); printf("NoPairwise");}
 		switch ((capa & 0x000c) >> 2) {
 		case 0:
-			printf(" 1-PTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("1-PTKSA-RC");
+			break;}
 		case 1:
-			printf(" 2-PTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("2-PTKSA-RC");
+			break;}
 		case 2:
-			printf(" 4-PTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("4-PTKSA-RC");
+			break;}
 		case 3:
-			printf(" 16-PTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("16-PTKSA-RC");
+			break;}
 		}
 		switch ((capa & 0x0030) >> 4) {
 		case 0:
-			printf(" 1-GTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("1-GTKSA-RC");
+			break;}
 		case 1:
-			printf(" 2-GTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("2-GTKSA-RC");
+			break;}
 		case 2:
-			printf(" 4-GTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("4-GTKSA-RC");
+			break;}
 		case 3:
-			printf(" 16-GTKSA-RC");
-			break;
+			{sep_if_not_first(&first); printf("16-GTKSA-RC");
+			break;}
 		}
 		if (capa & 0x0040)
-			printf(" MFP-required");
+			{sep_if_not_first(&first); printf("MFP-required");}
 		if (capa & 0x0080)
-			printf(" MFP-capable");
+			{sep_if_not_first(&first); printf("MFP-capable");}
 		if (capa & 0x0200)
-			printf(" Peerkey-enabled");
+			{sep_if_not_first(&first); printf("Peerkey-enabled");}
 		if (capa & 0x0400)
-			printf(" SPP-AMSDU-capable");
+			{sep_if_not_first(&first); printf("SPP-AMSDU-capable");}
 		if (capa & 0x0800)
-			printf(" SPP-AMSDU-required");
+			{sep_if_not_first(&first); printf("SPP-AMSDU-required");}
 		if (capa & 0x2000)
-			printf(" Extended-Key-ID");
-		printf(" (0x%.4x)", capa);
+			{sep_if_not_first(&first); printf("Extended-Key-ID");}
+		{sep_if_not_first(&first); printf("(0x%.4x)", capa);}
 		data += 2;
 		len -= 2;
 		printf("\n");
@@ -416,8 +623,8 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 		int pmkid_count = data[0] | (data[1] << 8);
 
 		if (len >= 2 + 16 * pmkid_count) {
-			dataline();
-			printf("RSN PMKID count: %d\n", pmkid_count);
+			dataline(section_name);
+			printf("PMKID count:%d\n", pmkid_count);
 			/* not printing PMKID values */
 			data += 2 + 16 * pmkid_count;
 			len -= 2 + 16 * pmkid_count;
@@ -427,8 +634,8 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 	}
 
 	if (len >= 4) {
-		dataline();
-		printf("RSN group mgmt cipher suite:");
+		dataline(section_name);
+		printf("group mgmt cipher suite:");
 		print_cipher(data);
 		data += 4;
 		len -= 4;
@@ -437,7 +644,7 @@ void print_rsn_ie(const char *defcipher, const char *defauth,
 
 invalid:
 	if (len != 0) {
-		dataline();
+		dataline(section_name);
 		printf("bogus tail data:%d", len);
 		while (len) {
 			printf(" %.2x", *data);
@@ -451,8 +658,13 @@ invalid:
 
 // from iw source code
 void print_rsn(const uint8_t type, uint8_t len, const uint8_t *data,
-	const struct print_ies_data *ie_buffer) {
-	print_rsn_ie("CCMP", "IEEE 802.1X", len, data);
+	struct print_ies_data *ie_buffer, const char* section_name) {
+	print_rsn_ie("CCMP", "IEEE 802.1X", len, data, section_name);
+}
+
+static void print_wifi_wpa(const uint8_t type, uint8_t len, const uint8_t *data,
+	struct print_ies_data *ie_buffer, const char* section_name) {
+	print_rsn_ie("TKIP", "IEEE 802.1X", len, data, section_name);
 }
 
 // this struct is used to create a handler for specific magic values of
@@ -463,7 +675,7 @@ void print_rsn(const uint8_t type, uint8_t len, const uint8_t *data,
 struct ie_print {
 	const char* name;
 	void (*print)(const uint8_t type, uint8_t len, const uint8_t *data,
-		const struct print_ies_data *ie_buffer);
+		struct print_ies_data *ie_buffer, const char* section_name);
 	uint8_t minlen;
 	uint8_t maxlen;
 };
@@ -472,19 +684,20 @@ struct ie_print {
 // contains empty elements for each type of IE that is not handled and is only 
 // modified at those points where we have an IE handler. See how it is done in
 // the beginning of main()
-const int MAX_IE_MAGIC = 255;
-struct ie_print ieprinters[MAX_IE_MAGIC];
+const int MAX_IE_MAGIC = 112;
+static struct ie_print ieprinters[MAX_IE_MAGIC];
+
+const int MAX_VENDOR_MAGIC = 112;
+static struct ie_print wifiprinters[MAX_VENDOR_MAGIC];
 
 // print a single IE parsed from a probe request or beacon response
-static void print_ie(const struct ie_print *p, const uint8_t type, uint8_t len,
-	const uint8_t *data, const struct print_ies_data *ie_buffer) {
+static void print_ie(const struct ie_print *p, const uint8_t type, uint8_t len, 
+	const uint8_t *data, struct print_ies_data *ie_buffer) {
 
 	// If no printer function is defined for type of IE
 	if (p->print == NULL) {
 		return;
 	}
-
-	//printf(",%s:", p->name);
 
 	if (len < p->minlen || len > p->maxlen) {
 		if (len > 1) {
@@ -497,25 +710,43 @@ static void print_ie(const struct ie_print *p, const uint8_t type, uint8_t len,
 		return;
 	}
 
-	p->print(type, len, data, ie_buffer);
+	p->print(type, len, data, ie_buffer, p->name);
+}
+
+static void print_vendor(unsigned char len, unsigned char *data)
+{
+	if (len < 3) {
+		return;
+	}
+
+	if (len >= 4 && memcmp(data, ms_oui, 3) == 0) {
+		if (data[3] < ARRAY_SIZE(wifiprinters) &&
+		    wifiprinters[data[3]].name) {
+			print_ie(&wifiprinters[data[3]], data[3], len - 4, data + 4, NULL);
+			return;
+		}
+
+		return;
+	}
 }
 
 // Go through all information elements and print them if a printer for them is defined
 void print_ies(unsigned char *ie, int ielen) {
+	struct print_ies_data ie_buffer = {
+		.ie = ie,
+		.ielen = ielen };
 
 	if (ie == NULL || ielen < 0) {
 		return;
 	}
 
-	struct print_ies_data ie_buffer = {
-		.ie = ie,
-		.ielen = ielen
-	};
-
 	while (ielen >= 2 && ielen - 2 >= ie[1]) {
 		if (ie[0] < ARRAY_SIZE(ieprinters) && ieprinters[ie[0]].name) {
 			print_ie(&ieprinters[ie[0]], ie[0], ie[1], ie + 2, &ie_buffer);
+		} else if (ie[0] == 221) {
+			print_vendor(ie[1], ie + 2);
 		}
+
 		ielen -= ie[1] + 2;
 		ie += ie[1] + 2;
 	}
@@ -603,7 +834,7 @@ int receive_scan_result(struct nl_msg *msg, void *arg) {
 
 	if (bss[NL80211_BSS_SIGNAL_MBM]) {
 		dataline();
-		printf("signal strength:%d mBm\n", nla_get_u8(bss[NL80211_BSS_SIGNAL_MBM]));
+		printf("signal strength:%d mBm\n", nla_get_u32(bss[NL80211_BSS_SIGNAL_MBM]));
 	} else if (bss[NL80211_BSS_SIGNAL_UNSPEC]) {
 		dataline();
 		printf("signal strength:%d units\n", nla_get_u8(bss[NL80211_BSS_SIGNAL_UNSPEC]));
@@ -812,7 +1043,12 @@ int main(int argc, char** argv) {
 	// magic values are supposed to be. They are copied from iw source.
 	memset(ieprinters, 0, sizeof(ieprinters));
 	ieprinters[0] = { "SSID", print_ssid, 0, 32 };
-	ieprinters[48] = { "RSN", print_rsn, 2, 255, };
+	ieprinters[48] = { "RSN", print_rsn, 2, 255 };
+
+	memset(wifiprinters, 0, sizeof(wifiprinters));
+	wifiprinters[1] = { "WPA", print_wifi_wpa, 2, 255 };
+	//wifiprinters[2] = { "WMM", print_wifi_wmm, 1, 255, };
+	wifiprinters[4] = { "WPS", print_wifi_wps, 0, 255 };
 
 	memset(current_mac, '\0', sizeof(current_mac));
 
@@ -901,4 +1137,3 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
-
