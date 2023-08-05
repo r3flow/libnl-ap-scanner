@@ -992,11 +992,11 @@ int receive_scan_result(struct nl_msg *msg, void *arg) {
 		int freq = nla_get_u32(bss[NL80211_BSS_FREQUENCY]);
 
 		dataline();
-		if (bss[NL80211_BSS_FREQUENCY_OFFSET])
-			printf("frequency: %d.%d MHz\n", freq,
-			    nla_get_u32(bss[NL80211_BSS_FREQUENCY_OFFSET]));
+		int freq_offset = bss[NL80211_BSS_FREQUENCY_OFFSET] ? nla_get_u32(bss[NL80211_BSS_FREQUENCY_OFFSET]) : 0;
+		if (freq_offset > 0)
+			printf("frequency:%d.%d MHz\n", freq, freq_offset);
 		else
-			printf("frequency: %d MHz\n", freq);
+			printf("frequency:%d MHz\n", freq);
 
 		if (freq > 45000)
 			is_dmg = true;
