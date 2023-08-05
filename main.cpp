@@ -45,6 +45,39 @@
 
 #define ARRAY_SIZE(ar) (sizeof(ar)/sizeof(ar[0]))
 
+// These are from iw source code, and they related to parsing BSS capabilities
+#define WLAN_CAPABILITY_ESS                 (1<<0)
+#define WLAN_CAPABILITY_IBSS                (1<<1)
+#define WLAN_CAPABILITY_CF_POLLABLE         (1<<2)
+#define WLAN_CAPABILITY_CF_POLL_REQUEST     (1<<3)
+#define WLAN_CAPABILITY_PRIVACY             (1<<4)
+#define WLAN_CAPABILITY_SHORT_PREAMBLE      (1<<5)
+#define WLAN_CAPABILITY_PBCC                (1<<6)
+#define WLAN_CAPABILITY_CHANNEL_AGILITY     (1<<7)
+#define WLAN_CAPABILITY_SPECTRUM_MGMT       (1<<8)
+#define WLAN_CAPABILITY_QOS                 (1<<9)
+#define WLAN_CAPABILITY_SHORT_SLOT_TIME     (1<<10)
+#define WLAN_CAPABILITY_APSD                (1<<11)
+#define WLAN_CAPABILITY_RADIO_MEASURE       (1<<12)
+#define WLAN_CAPABILITY_DSSS_OFDM           (1<<13)
+#define WLAN_CAPABILITY_DEL_BACK            (1<<14)
+#define WLAN_CAPABILITY_IMM_BACK            (1<<15)
+/* DMG (60gHz) 802.11ad */
+/* type - bits 0..1 */
+#define WLAN_CAPABILITY_DMG_TYPE_MASK       (3<<0)
+
+#define WLAN_CAPABILITY_DMG_TYPE_IBSS       (1<<0) /* Tx by: STA */
+#define WLAN_CAPABILITY_DMG_TYPE_PBSS       (2<<0) /* Tx by: PCP */
+#define WLAN_CAPABILITY_DMG_TYPE_AP         (3<<0) /* Tx by: AP */
+
+#define WLAN_CAPABILITY_DMG_CBAP_ONLY       (1<<2)
+#define WLAN_CAPABILITY_DMG_CBAP_SOURCE     (1<<3)
+#define WLAN_CAPABILITY_DMG_PRIVACY         (1<<4)
+#define WLAN_CAPABILITY_DMG_ECPAC           (1<<5)
+
+#define WLAN_CAPABILITY_DMG_SPECTRUM_MGMT   (1<<8)
+#define WLAN_CAPABILITY_DMG_RADIO_MEASURE   (1<<12)
+
 // These are from iw source code, and they related to parsing authentication suites
 const unsigned char ms_oui[3] = { 0x00, 0x50, 0xf2 };
 const unsigned char ieee80211_oui[3]   = { 0x00, 0x0f, 0xac };
@@ -56,10 +89,10 @@ char current_mac[20];
 
 const char* DISCOVER_STR = "AP_DISCOVERED,";
 const char* DATA_STR = "AP_DATA,";
-const char* GLOBAL_SECTION = "GLOBAL";
+const char* BSS_SECTION = "BSS";
 
 inline void dataline(const char* section_name = NULL) {
-	printf("%s%s,%s,", DATA_STR, current_mac, section_name != NULL ? section_name : GLOBAL_SECTION);
+	printf("%s%s,%s,", DATA_STR, current_mac, section_name != NULL ? section_name : BSS_SECTION);
 }
 
 static void sep_if_not_first(bool *first, const char* separator = ",")
@@ -119,6 +152,120 @@ void mac_addr_n2a(char* mac_addr, unsigned char* arg) {
 			sprintf(mac_addr+l, ":%02x", arg[i]);
 			l += 3;
 		}
+	}
+}
+
+static void print_capa_dmg(__u16 capa, bool* first)
+{
+	switch (capa & WLAN_CAPABILITY_DMG_TYPE_MASK) {
+		case WLAN_CAPABILITY_DMG_TYPE_AP: {
+			sep_if_not_first(first);
+			printf("DMG_ESS");
+			break;
+		}
+		case WLAN_CAPABILITY_DMG_TYPE_PBSS: {
+			sep_if_not_first(first);
+			printf("DMG_PCP");
+			break;
+		}
+		case WLAN_CAPABILITY_DMG_TYPE_IBSS: {
+			sep_if_not_first(first);
+			printf("DMG_IBSS");
+			break;
+		}
+	}
+
+	if (capa & WLAN_CAPABILITY_DMG_CBAP_ONLY){
+		sep_if_not_first(first);
+		printf("CBAP_Only");
+	}
+	if (capa & WLAN_CAPABILITY_DMG_CBAP_SOURCE){
+		sep_if_not_first(first);
+		printf("CBAP_Src");
+	}
+	if (capa & WLAN_CAPABILITY_DMG_PRIVACY){
+		sep_if_not_first(first);
+		printf("Privacy");
+	}
+	if (capa & WLAN_CAPABILITY_DMG_ECPAC){
+		sep_if_not_first(first);
+		printf("ECPAC");
+	}
+	if (capa & WLAN_CAPABILITY_DMG_SPECTRUM_MGMT){
+		sep_if_not_first(first);
+		printf("SpectrumMgmt");
+	}
+	if (capa & WLAN_CAPABILITY_DMG_RADIO_MEASURE){
+		sep_if_not_first(first);
+		printf("RadioMeasure");
+	}
+}
+
+static void print_capa_non_dmg(__u16 capa, bool* first)
+{
+	if (capa & WLAN_CAPABILITY_ESS){
+		sep_if_not_first(first);
+		printf("ESS");
+	}
+	if (capa & WLAN_CAPABILITY_IBSS){
+		sep_if_not_first(first);
+		printf("IBSS");
+	}
+	if (capa & WLAN_CAPABILITY_CF_POLLABLE){
+		sep_if_not_first(first);
+		printf("CfPollable");
+	}
+	if (capa & WLAN_CAPABILITY_CF_POLL_REQUEST){
+		sep_if_not_first(first);
+		printf("CfPollReq");
+	}
+	if (capa & WLAN_CAPABILITY_PRIVACY){
+		sep_if_not_first(first);
+		printf("Privacy");
+	}
+	if (capa & WLAN_CAPABILITY_SHORT_PREAMBLE){
+		sep_if_not_first(first);
+		printf("ShortPreamble");
+	}
+	if (capa & WLAN_CAPABILITY_PBCC){
+		sep_if_not_first(first);
+		printf("PBCC");
+	}
+	if (capa & WLAN_CAPABILITY_CHANNEL_AGILITY){
+		sep_if_not_first(first);
+		printf("ChannelAgility");
+	}
+	if (capa & WLAN_CAPABILITY_SPECTRUM_MGMT){
+		sep_if_not_first(first);
+		printf("SpectrumMgmt");
+	}
+	if (capa & WLAN_CAPABILITY_QOS){
+		sep_if_not_first(first);
+		printf("QoS");
+	}
+	if (capa & WLAN_CAPABILITY_SHORT_SLOT_TIME){
+		sep_if_not_first(first);
+		printf("ShortSlotTime");
+	}
+	if (capa & WLAN_CAPABILITY_APSD){
+		sep_if_not_first(first);
+		printf("APSD");
+	}
+	if (capa & WLAN_CAPABILITY_RADIO_MEASURE){
+		sep_if_not_first(first);
+		printf("RadioMeasure");
+	}
+	if (capa & WLAN_CAPABILITY_DSSS_OFDM){
+		sep_if_not_first(first);
+		printf("DSSS-OFDM");
+	}
+	if (capa & WLAN_CAPABILITY_DEL_BACK){
+		sep_if_not_first(first);
+		printf("DelayedBACK");
+	}
+	if (capa & WLAN_CAPABILITY_IMM_BACK){
+		sep_if_not_first(first);
+		printf("ImmediateBACK");
 	}
 }
 
@@ -803,6 +950,7 @@ int receive_scan_result(struct nl_msg *msg, void *arg) {
 	bss_policy[NL80211_BSS_STATUS] = { .type = NLA_U32 };
 	bss_policy[NL80211_BSS_SEEN_MS_AGO] = { .type = NLA_U32 };
 	bss_policy[NL80211_BSS_BEACON_IES] = { };
+	bool is_dmg = false;
 
 	int err = nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 	if (err < 0) {
@@ -841,8 +989,31 @@ int receive_scan_result(struct nl_msg *msg, void *arg) {
 	}
 
 	if (bss[NL80211_BSS_FREQUENCY]) {
+		int freq = nla_get_u32(bss[NL80211_BSS_FREQUENCY]);
+
 		dataline();
-		printf("frequency:%d MHz\n", nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
+		if (bss[NL80211_BSS_FREQUENCY_OFFSET])
+			printf("frequency: %d.%d MHz\n", freq,
+			    nla_get_u32(bss[NL80211_BSS_FREQUENCY_OFFSET]));
+		else
+			printf("frequency: %d MHz\n", freq);
+
+		if (freq > 45000)
+			is_dmg = true;
+	}
+
+	if (bss[NL80211_BSS_CAPABILITY]) {
+		__u16 capa = nla_get_u16(bss[NL80211_BSS_CAPABILITY]);
+		bool first = true;
+		dataline();
+		printf("capability:");
+		if (is_dmg)
+			print_capa_dmg(capa, &first);
+		else
+			print_capa_non_dmg(capa, &first);
+		
+		sep_if_not_first(&first);
+		printf("(0x%.4x)\n", capa);
 	}
 
 	// Information element parsing is based entirely on iw source code. There's a ton of undocumented
