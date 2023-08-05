@@ -113,8 +113,8 @@ struct print_ies_data {
 	int ielen;
 };
 
+// Error callback
 int error_handler(struct sockaddr_nl* nla, struct nlmsgerr* err, void* arg) {
-	printf("error_handler() called\n");
 	int* ret = (int*)arg;
 	*ret = err->error;
 	return NL_STOP;
@@ -1127,15 +1127,15 @@ int do_scan_trigger(struct nl_sock* socket, int if_index, int family_id) {
 	ssids_to_scan = NULL;
 
 	// Add callbacks - apparently the same callback handle is used for all of them?
-	ret = nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, scan_finished_cb, &results);
-	if (ret < 0) {
-		printf("Failed setting NL_CB_VALID callback: %d, %s\n", ret, nl_geterror(ret));
-		return 1;
-	}
-
 	ret = nl_cb_err(cb, NL_CB_CUSTOM, error_handler, &err);
 	if (ret < 0) {
 		printf("Failed setting NL_CB_CUSTOM callback: %d, %s\n", ret, nl_geterror(ret));;
+		return 1;
+	}
+
+	ret = nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, scan_finished_cb, &results);
+	if (ret < 0) {
+		printf("Failed setting NL_CB_VALID callback: %d, %s\n", ret, nl_geterror(ret));
 		return 1;
 	}
 
@@ -1145,8 +1145,7 @@ int do_scan_trigger(struct nl_sock* socket, int if_index, int family_id) {
 		return 1;
 	}
 
-	int ack_got = 0;
-	ret = nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &ack_got);
+	ret = nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, ack_handler, &err);
 	if (ret < 0) {
 		printf("Failed setting NL_CB_ACK callback: %d, %s\n", ret, nl_geterror(ret));
 		return 1;
@@ -1155,7 +1154,7 @@ int do_scan_trigger(struct nl_sock* socket, int if_index, int family_id) {
 	// No sequence checking for multicast messages
 	ret = nl_cb_set(cb, NL_CB_SEQ_CHECK, NL_CB_CUSTOM, no_seq_check, NULL);
 	if (ret < 0) {
-		printf("Failed setting NL_CB_ACK callback: %d, %s\n", ret, nl_geterror(ret));
+		printf("Failed setting NL_CB_SEQ_CHECK callback: %d, %s\n", ret, nl_geterror(ret));
 		return 1;
 	}
 
@@ -1175,17 +1174,20 @@ int do_scan_trigger(struct nl_sock* socket, int if_index, int family_id) {
 	printf("nl_send_auto wrote %d bytes\n", written);
 	printf("Waiting for scan to complete\n");
 
-	// wait for NL_CB_ACK
-	while (ack_got != 0) {
+	// wait for NL_CB_ACK|error_handler
+	while (err > 0) {
 		ret = nl_recvmsgs(socket, cb);
 		if (ret < 0) {
-			printf("nl_recvmsgs returned error: %d, %s\n", ret, nl_geterror(ret));
-			return 1;
+			fprintf(stderr, "nl_recvmsgs returned error: %d, %s\n", ret, nl_geterror(ret));
+			if (err >= 0)
+				return 1;
+			else
+			  	break;
 		}
 	}
 
 	if (err < 0) {
-		printf("error flag set during message transmission: %d, %s\n", err, nl_geterror(err));
+		fprintf(stderr, "error flag set during message transmission: %d, %s\n", err, strerror(-err));
 		return 1;
 	}
 
