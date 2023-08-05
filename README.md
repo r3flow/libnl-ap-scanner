@@ -24,7 +24,7 @@ for DISCOVERED lines:
 ```
 for DATA lines:
 ```
-^AP_DATA,([A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}),([\w\d]+),([\-\w\d\s]+)(?::(.*))?$
+^AP_DATA,([A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}:[A-F0-9]{2}),([\-\w\d]+),([\-\w\d\s]+)(?::(.*))?$
 ```
 for Signal strength value:
 ```
