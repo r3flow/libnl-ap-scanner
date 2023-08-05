@@ -19,7 +19,7 @@ RDEPENDS_${PN}:append = "libnl-genl"
 inherit pkgconfig
 
 do_compile() {
-    ${CXX} -std=c++14 -Wall -g -Wfloat-conversion -Wpedantic -Wno-switch `pkg-config --cflags libnl-genl-3.0` ${CXXFLAGS} -c main.cpp
+    ${CXX} -std=c++20 -Wall -g -Wfloat-conversion -Wpedantic -Wno-switch `pkg-config --cflags libnl-genl-3.0` ${CXXFLAGS} -c main.cpp
     ${CXX} `pkg-config --libs libnl-genl-3.0` ${LDFLAGS} -o ap-scanner main.o
 }
 
