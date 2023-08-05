@@ -1006,7 +1006,7 @@ int receive_scan_result(struct nl_msg *msg, void *arg) {
 		__u16 capa = nla_get_u16(bss[NL80211_BSS_CAPABILITY]);
 		bool first = true;
 		dataline();
-		printf("capability:");
+		printf("capabilities:");
 		if (is_dmg)
 			print_capa_dmg(capa, &first);
 		else
