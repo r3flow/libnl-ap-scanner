@@ -5,7 +5,7 @@ This repo was forked from "Delicode/libnl-ap-scanner" because its output has cha
 *Updates:*
 
 Aug 5, 2023:
-- print BSS capability
+- print BSS capabilities
 
 Aug 4, 2023:
 - signal strength bug fixed (u8 -> u32)
