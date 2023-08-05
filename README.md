@@ -4,6 +4,9 @@ This repo was forked from "Delicode/libnl-ap-scanner" because its output has cha
 
 *Updates:*
 
+Aug 5, 2023:
+- print BSS capability
+
 Aug 4, 2023:
 - signal strength bug fixed (u8 -> u32)
 - enum values now comma separated because the values can contains spaces (e.g.: "IEEE 802.1X")
@@ -38,16 +41,17 @@ units = 0..100    (signal quality in percent)
 
 The goal is still to have a stable output. The output of the program is approximately as follows:
 ```
-gekko@gekkoslovakia:~/libnl-ap-scanner$ make && sudo ./ap-scanner wlp2s0
+$ make && sudo ./ap-scanner wlp2s0
 make: Nothing to be done for 'all'.
 Using interface: wlp2s0
 nl_send_auto wrote 36 bytes
 Waiting for scan to complete
 Scan is done
 AP_DISCOVERED,2c:56:dc:5c:8e:85
-AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,signal strength:-4700 mBm
-AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,frequency:2437 MHz
-AP_DATA,2c:56:dc:5c:8e:85,GLOBAL,ssid:Domain1
+AP_DATA,2c:56:dc:5c:8e:85,BSS,signal strength:-4700 mBm
+AP_DATA,2c:56:dc:5c:8e:85,BSS,frequency:2437 MHz
+AP_DATA,2c:56:dc:5c:8e:85,BSS,capability:ESS,Privacy,SpectrumMgmt,RadioMeasure,(0x1111)
+AP_DATA,2c:56:dc:5c:8e:85,BSS,ssid:Domain1
 AP_DATA,2c:56:dc:5c:8e:85,RSN,version:1
 AP_DATA,2c:56:dc:5c:8e:85,RSN,group cipher:CCMP
 AP_DATA,2c:56:dc:5c:8e:85,RSN,pairwise ciphers:CCMP
@@ -55,9 +59,10 @@ AP_DATA,2c:56:dc:5c:8e:85,RSN,authentication suites:IEEE 802.1X
 AP_DATA,2c:56:dc:5c:8e:85,RSN,capabilities:1-PTKSA-RC,1-GTKSA-RC,(0x0000)
 
 AP_DISCOVERED,37:c5:9a:31:fa:8c
-AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,signal strength:-2600 mBm
-AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,frequency:5180 MHz
-AP_DATA,37:c5:9a:31:fa:8c,GLOBAL,ssid:Iot-Test_5G
+AP_DATA,37:c5:9a:31:fa:8c,BSS,signal strength:-2600 mBm
+AP_DATA,37:c5:9a:31:fa:8c,BSS,frequency:5180 MHz
+AP_DATA,37:c5:9a:31:fa:8c,BSS,capability:ESS,Privacy,ShortPreamble,(0x0031)
+AP_DATA,37:c5:9a:31:fa:8c,BSS,ssid:Iot-Test_5G
 AP_DATA,37:c5:9a:31:fa:8c,RSN,version:1
 AP_DATA,37:c5:9a:31:fa:8c,RSN,group cipher:CCMP
 AP_DATA,37:c5:9a:31:fa:8c,RSN,pairwise ciphers:CCMP
@@ -65,9 +70,10 @@ AP_DATA,37:c5:9a:31:fa:8c,RSN,authentication suites:SAE
 AP_DATA,37:c5:9a:31:fa:8c,RSN,capabilities:16-PTKSA-RC,1-GTKSA-RC,MFP-required,MFP-capable,(0x00cc)
 
 AP_DISCOVERED,a8:56:28:af:0a:0f
-AP_DATA,a8:56:28:af:0a:0f,GLOBAL,signal strength:-2600 mBm
-AP_DATA,a8:56:28:af:0a:0f,GLOBAL,frequency:2462 MHz
-AP_DATA,a8:56:28:af:0a:0f,GLOBAL,ssid:Iot-Test
+AP_DATA,a8:56:28:af:0a:0f,BSS,signal strength:-2600 mBm
+AP_DATA,a8:56:28:af:0a:0f,BSS,frequency:2462 MHz
+AP_DATA,a8:56:28:af:0a:0f,BSS,capability:ESS,Privacy,SpectrumMgmt,ShortSlotTime,RadioMeasure,(0x1511)
+AP_DATA,a8:56:28:af:0a:0f,BSS,ssid:Iot-Test
 AP_DATA,a8:56:28:af:0a:0f,RSN,version:1
 AP_DATA,a8:56:28:af:0a:0f,RSN,group cipher:TKIP
 AP_DATA,a8:56:28:af:0a:0f,RSN,pairwise ciphers:CCMP,TKIP
