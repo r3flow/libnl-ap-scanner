@@ -1188,7 +1188,7 @@ int do_scan_trigger(struct nl_sock* socket, int if_index, int family_id) {
 
 	if (err < 0) {
 		fprintf(stderr, "error flag set during message transmission: %d, %s\n", err, strerror(-err));
-		return 1;
+		return err;
 	}
 
 	while (results.done != 1) {
@@ -1276,7 +1276,7 @@ int main(int argc, char** argv) {
 
 	if (err != 0) {
 		printf("do_scan_trigger() failed with %d\n", err);
-		return 1;
+		return err > 0 ? err : -err;
 	}
 
 	// get info for all SSIDs detected
