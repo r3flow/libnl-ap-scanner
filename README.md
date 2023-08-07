@@ -6,7 +6,7 @@ This repo was forked from "Delicode/libnl-ap-scanner" because its output has cha
 
 Aug 5, 2023:
 - print BSS capabilities
-- fix: never exits if ack_handler is not called (e.g. because the interface is down)
+- fix: never exits if ack_handler is not called (e.g. interface is down (-100) or busy (-16))
 
 Aug 4, 2023:
 - signal strength bug fixed (u8 -> u32)
