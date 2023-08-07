@@ -4,6 +4,9 @@ This repo was forked from "Delicode/libnl-ap-scanner" because its output has cha
 
 *Updates:*
 
+Aug 7, 2023
+- on error, return the error code as the exit code instead of 1
+
 Aug 5, 2023:
 - print BSS capabilities
 - fix: never exits if ack_handler is not called (e.g. interface is down (-100) or busy (-16))
